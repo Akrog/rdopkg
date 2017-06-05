@@ -83,6 +83,9 @@ ACTIONS = [
                    help="User to be used in new changelog entry"),
                Arg('changelog_email', shortcut='-e', default=None,
                    help="email address to be used in new changelog entry"),
+               Arg('like_cinder_team', shortcut='-T', action='store_true',
+                   help='do commit message and chanelog entries as we like it '
+                        'in the Cinder team.'),
            ],
            steps=[
                Action('get_package_env'),

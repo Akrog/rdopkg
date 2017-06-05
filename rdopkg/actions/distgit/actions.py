@@ -513,7 +513,7 @@ def check_new_patches(version, local_patches_branch,
                       patches_style=None, local_patches=False,
                       patches_branch=None, changes=None,
                       version_tag_style=None, changelog=None,
-                      no_bump=False):
+                      no_bump=False, like_cinder_team=False):
     if no_bump:
         return
     if not changes:
@@ -571,8 +571,9 @@ def check_new_patches(version, local_patches_branch,
             if n_base_patches > 0:
                 patches = patches[0:-n_base_patches]
 
+        rhbz_str = 'RHBZ#%s' if like_cinder_team else 'rhbz#%s'
         for _, subj, bzs in patches:
-            bzstr = ' '.join(map(lambda x: 'rhbz#%s' % x, bzs))
+            bzstr = ' '.join(map(lambda x: rhbz_str % x, bzs))
             if bzstr:
                 subj += ' (%s)' % bzstr
             changes.append(subj)
@@ -586,7 +587,10 @@ def check_new_patches(version, local_patches_branch,
 
     if not changes:
         changes.append('Update patches')
-    return {'changes': changes}
+    result = {'changes': changes}
+    if like_cinder_team:
+        result['raw_changes'] = patches
+    return result
 
 
 def get_upstream_patches(version, local_patches_branch,
@@ -688,6 +692,36 @@ def new_sources(branch=None, fedpkg=FEDPKG, new_sources=False):
     run(*cmd, direct=True)
 
 
+def _cinder_commit_message(raw_changes, header_file, branch):
+    # If we have multiple bugfixes we require a summary line
+    if not header_file and len(raw_changes) > 1:
+        print('Multiple fixes found, write summary line (Ctrl+D to end):')
+        header_file = '-'
+    if header_file:
+        try:
+            if header_file == '-':
+                msg = [sys.stdin.read()]
+            else:
+                msg = [open(header_file).read()]
+        except IOError as ex:
+            raise exception.FileNotFound(msg=str(ex))
+        msg.append('')
+    else:
+        msg = []
+
+    for __, subj, bzs in raw_changes:
+        msg.append(subj)
+        if len(raw_changes) == 1 and not header_file:
+            msg.append('')
+        if bzs:
+            msg.extend('Resolves: rhbz #%s' % bz for bz in bzs)
+        msg.append('')
+
+    msg.append('Updated patches from ' + branch)
+    result = '\n'.join(msg)
+    return result
+
+
 def _commit_message(changes=None, header_file=None):
     if not changes:
         _, changes = specfile.Spec().get_last_changelog_entry(strip=True)
@@ -719,9 +753,15 @@ def _commit_message(changes=None, header_file=None):
     return msg
 
 
-def commit_distgit_update(branch=None, amend=False, commit_header_file=None):
+def commit_distgit_update(local_patches_branch, branch=None, amend=False,
+                          commit_header_file=None, like_cinder_team=False,
+                          raw_changes=None):
     _ensure_branch(branch)
-    msg = _commit_message(header_file=commit_header_file)
+    if like_cinder_team:
+        msg = _cinder_commit_message(raw_changes, commit_header_file,
+                                     local_patches_branch)
+    else:
+        msg = _commit_message(header_file=commit_header_file)
     cmd = ['commit', '-a', '-F', '-']
     if amend:
         cmd.append('--amend')
