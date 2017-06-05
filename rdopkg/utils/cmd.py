@@ -270,7 +270,7 @@ class Git(ShellCommand):
         log = log_out.strip('\n\x1e').split("\x1e")
         log = [row.strip('\n\t ').split("\x1f") for row in log]
         log = [dict(zip(GIT_COMMIT_FIELDS, row)) for row in log]
-        BZ_REGEX = r'rhbz#(\d+)'
+        BZ_REGEX = r'rhbz ?#(\d+)'
         result = []
         for commit in log:
             bzs = re.findall(BZ_REGEX, commit['subject'])
