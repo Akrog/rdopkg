@@ -142,7 +142,7 @@ def _print_patch_log(patches, tag, n_excluded):
     if n_patches <= 0:
         return
     ei = n_patches - n_excluded
-    for hsh, title, bzs in patches:
+    for hsh, title, bzs, related_bzs in patches:
         if ei > 0:
             chsh = log.term.green(hsh)
         else:
@@ -555,7 +555,7 @@ def check_new_patches(version, local_patches_branch,
         if changelog == 'detect':
             # detect new/old patches by hash/subject
             def _patch_filter(c):
-                hash, subj, bzs = c
+                hash, subj, bzs, related_bzs = c
                 for _, old_hash, old_subj in old_patches:
                     if helpers.is_same_hash(hash, old_hash):
                         return False
@@ -572,7 +572,7 @@ def check_new_patches(version, local_patches_branch,
                 patches = patches[0:-n_base_patches]
 
         rhbz_str = 'RHBZ#%s' if like_cinder_team else 'rhbz#%s'
-        for _, subj, bzs in patches:
+        for _, subj, bzs, related_bzs in patches:
             bzstr = ' '.join(map(lambda x: rhbz_str % x, bzs))
             if bzstr:
                 subj += ' (%s)' % bzstr
@@ -709,12 +709,14 @@ def _cinder_commit_message(raw_changes, header_file, branch):
     else:
         msg = []
 
-    for __, subj, bzs in raw_changes:
+    for __, subj, bzs, related_bzs in raw_changes:
         msg.append(subj)
         if len(raw_changes) == 1 and not header_file:
             msg.append('')
         if bzs:
             msg.extend('Resolves: rhbz #%s' % bz for bz in bzs)
+        if related_bzs:
+            msg.extend('Related: rhbz #%s' % bz for bz in related_bzs)
         msg.append('')
 
     msg.append('Updated patches from ' + branch)

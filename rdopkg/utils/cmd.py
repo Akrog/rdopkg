@@ -256,7 +256,8 @@ class Git(ShellCommand):
     def get_commit_bzs(self, from_revision, to_revision=None):
         """
         Return a list of tuples, one per commit. Each tuple is (sha1, subject,
-        bz_list). bz_list is a (possibly zero-length) list of numbers.
+        bz_fix_list, bz_related_list). bz_fix_list and bz_related_list are
+        (possibly zero-length) lists of numbers.
         """
         rng = self.rev_range(from_revision, to_revision)
         GIT_COMMIT_FIELDS = ['id', 'subject', 'body']
@@ -270,12 +271,17 @@ class Git(ShellCommand):
         log = log_out.strip('\n\x1e').split("\x1e")
         log = [row.strip('\n\t ').split("\x1f") for row in log]
         log = [dict(zip(GIT_COMMIT_FIELDS, row)) for row in log]
-        BZ_REGEX = r'rhbz ?#(\d+)'
+        BZ_REGEX = r'(?i)(?:Related(?:-Bug)?:\s*rhbz ?#\d+)|rhbz ?#(\d+)'
+        RELATED_REGEZ = r'(?i)Related(?:-Bug)?:\s*rhbz ?#(\d+)'
+
         result = []
         for commit in log:
             bzs = re.findall(BZ_REGEX, commit['subject'])
             bzs.extend(re.findall(BZ_REGEX, commit['body']))
-            result.append((commit['id'], commit['subject'], bzs))
+            # Remove empty strings from related bzs
+            bzs = [bz for bz in bzs if bz]
+            related = re.findall(RELATED_REGEZ, commit['body'])
+            result.append((commit['id'], commit['subject'], bzs, related))
         return result
 
     def get_latest_commit_hash(self, ref=None):
